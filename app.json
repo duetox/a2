@@ -1,9 +1,14 @@
 {
-  "name": "𝗔𝗔𝗦𝗛𝗜𝗙-𝗠𝗗",
+  "name": "\ud835\uddd4\ud835\uddd4\ud835\udde6\ud835\udddb\ud835\udddc\ud835\uddd9-\ud835\udde0\ud835\uddd7",
   "version": "1.0.0",
   "description": "Atassa, a Multi Device Whatsapp Bot built by Gifted Tech to Enhance Whatsapp Communication Experience",
   "logo": "https://i.ibb.co/5Xjj5sxz/tourl-1777040577237.jpg",
-  "keywords": ["atassa", "gifted-baileys", "gifted-btns", "gifted-api"],
+  "keywords": [
+    "atassa",
+    "gifted-baileys",
+    "gifted-btns",
+    "gifted-api"
+  ],
   "success_url": "/",
   "stack": "heroku-24",
   "env": {
@@ -36,6 +41,16 @@
       "description": "PostgreSQL connection URL. Leave blank to use the auto-provisioned Heroku Postgres addon, or supply your own (Neon, Supabase, etc.). Falls back to SQLite if empty and no addon is attached.",
       "required": false,
       "value": ""
+    },
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Telegram bot token from @BotFather. Used for session setup flow.",
+      "required": true,
+      "value": ""
+    },
+    "TELEGRAM_PASSWORD": {
+      "description": "Password required in Telegram (/password <value>) before accepting SESSION_ID.",
+      "required": true,
+      "value": ""
     }
   },
   "addons": [
@@ -45,8 +60,12 @@
     }
   ],
   "buildpacks": [
-    { "url": "heroku/nodejs" },
-    { "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest" }
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest"
+    }
   ],
   "formation": {
     "web": {

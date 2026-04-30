@@ -419,11 +419,13 @@ async function loadSession() {
             });
         }
 
-        if (!config.SESSION_ID || typeof config.SESSION_ID !== 'string') {
+        const activeSessionId = process.env.SESSION_ID || config.SESSION_ID;
+
+        if (!activeSessionId || typeof activeSessionId !== 'string') {
             throw new Error("❌ SESSION_ID is missing or invalid");
         }
 
-        let sessionId = config.SESSION_ID;
+        let sessionId = activeSessionId;
         const [headerCheck, b64Check] = sessionId.split('~');
 
         if (headerCheck !== "Gifted" || !b64Check) {
