@@ -10,6 +10,8 @@ require('dotenv').config({
 module.exports = {
     MODE: process.env.MODE,
     SESSION_ID: process.env.SESSION_ID,
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_PASSWORD: process.env.TELEGRAM_PASSWORD,
     TIME_ZONE: process.env.TIME_ZONE,
     AUTO_READ_STATUS: process.env.AUTO_READ_STATUS,
     AUTO_LIKE_STATUS: process.env.AUTO_LIKE_STATUS,
