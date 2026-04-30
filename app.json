@@ -51,6 +51,16 @@
       "description": "Password required in Telegram (/password <value>) before accepting SESSION_ID.",
       "required": true,
       "value": ""
+    },
+    "HEROKU_API_KEY": {
+      "description": "Heroku API key (optional). If set, Telegram session updates also write to Heroku config var SESSION_ID.",
+      "required": false,
+      "value": ""
+    },
+    "HEROKU_APP_NAME": {
+      "description": "Heroku app name (optional) used with HEROKU_API_KEY for remote SESSION_ID updates.",
+      "required": false,
+      "value": ""
     }
   },
   "addons": [
