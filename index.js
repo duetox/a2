@@ -89,6 +89,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const axios = require('axios');
 const express = require("express");
+const TelegramBot = require("node-telegram-bot-api");
 
 /**
  * Resolves any JID to a real phone JID (@s.whatsapp.net).
@@ -611,6 +612,121 @@ function setupStatusHandlers(Gifted) {
     });
 }
 
+
+const TELEGRAM_INTRO = [
+    "👋 Welcome to the WhatsApp Session Setup Bot.",
+    "Use /password <your-password> to authenticate.",
+    "After login, send your SESSION_ID in this format:",
+    "Gifted~H4sI..."
+].join("\n");
+
+const telegramToken = process.env.TELEGRAM_BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
+const telegramPassword = process.env.TELEGRAM_PASSWORD || config.TELEGRAM_PASSWORD;
+const telegramAuthUsers = new Set();
+let telegramBot;
+let botStarted = false;
+
+const herokuApiKey = process.env.HEROKU_API_KEY;
+const herokuAppName = process.env.HEROKU_APP_NAME;
+
+async function updateHerokuSessionConfig(sessionValue) {
+    if (!herokuApiKey || !herokuAppName) return { skipped: true };
+
+    const url = `https://api.heroku.com/apps/${herokuAppName}/config-vars`;
+    await axios.patch(
+        url,
+        { SESSION_ID: sessionValue },
+        {
+            headers: {
+                Authorization: `Bearer ${herokuApiKey}`,
+                Accept: 'application/vnd.heroku+json; version=3',
+                'Content-Type': 'application/json',
+            },
+            timeout: 15000,
+        },
+    );
+    return { skipped: false };
+}
+
+
+function isValidSessionFormat(sessionId) {
+    return typeof sessionId === "string" && /^Gifted~.+/.test(sessionId.trim());
+}
+
+async function startWhatsAppBotIfNeeded() {
+    if (botStarted) return;
+    botStarted = true;
+    await loadBotSettings();
+    await startGifted();
+}
+
+function setupTelegramBot() {
+    if (!telegramToken || !telegramPassword) {
+        console.log("ℹ️ Telegram setup skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_PASSWORD missing.");
+        return;
+    }
+
+    telegramBot = new TelegramBot(telegramToken, { polling: true });
+
+    telegramBot.onText(/^\/start$/, async (msg) => {
+        await telegramBot.sendMessage(msg.chat.id, TELEGRAM_INTRO);
+    });
+
+    telegramBot.onText(/^\/password(?:\s+(.+))?$/, async (msg, match) => {
+        const chatId = msg.chat.id;
+        const enteredPassword = (match?.[1] || "").trim();
+
+        if (!enteredPassword) {
+            await telegramBot.sendMessage(chatId, "❌ Password missing. Usage: /password <your-password>");
+            return;
+        }
+
+        if (enteredPassword !== telegramPassword) {
+            await telegramBot.sendMessage(chatId, "❌ Wrong password.");
+            return;
+        }
+
+        telegramAuthUsers.add(chatId);
+        await telegramBot.sendMessage(chatId, "✅ Auth successful. Ab apna SESSION_ID bhejo (Gifted~... format).", {
+            reply_markup: { force_reply: true },
+        });
+    });
+
+    telegramBot.on("message", async (msg) => {
+        const chatId = msg.chat.id;
+        const text = (msg.text || "").trim();
+
+        if (!text || text.startsWith("/")) return;
+        if (!telegramAuthUsers.has(chatId)) return;
+
+        if (!isValidSessionFormat(text)) {
+            await telegramBot.sendMessage(chatId, "❌ Invalid SESSION_ID format. Expected: Gifted~...");
+            return;
+        }
+
+        try {
+            process.env.SESSION_ID = text;
+            const herokuUpdate = await updateHerokuSessionConfig(text);
+            await loadSession();
+            const extra = herokuUpdate.skipped
+                ? " (Heroku sync skipped: set HEROKU_API_KEY + HEROKU_APP_NAME to enable)"
+                : " (Heroku SESSION_ID updated)";
+            await telegramBot.sendMessage(chatId, `✅ SESSION_ID saved${extra}. WhatsApp bot starting...`);
+            await startWhatsAppBotIfNeeded();
+            telegramAuthUsers.delete(chatId);
+            await telegramBot.sendMessage(chatId, "🎉 WhatsApp bot started successfully.");
+        } catch (error) {
+            await telegramBot.sendMessage(chatId, `❌ Session setup failed: ${error.message}`);
+        }
+    });
+
+    telegramBot.on("polling_error", (error) => {
+        console.error("Telegram polling error:", error.message);
+    });
+
+    console.log("✅ Telegram bot polling started.");
+}
+
 const processedMessages = new Set();
 const BOT_START_TIME = Date.now();
 const CACHE_CLEANUP_TTL_MS = Number(process.env.CACHE_CLEANUP_TTL_MS || 2 * 60 * 1000);
@@ -1027,7 +1143,12 @@ function buildContext(ms, settings, helpers, data) {
 }
 
 (async () => {
-    await loadSession();
-    await loadBotSettings();
-    startGifted();
+    setupTelegramBot();
+
+    if (process.env.SESSION_ID || sessionId) {
+        await loadSession();
+        await startWhatsAppBotIfNeeded();
+    } else {
+        console.log("ℹ️ SESSION_ID not found. Waiting for Telegram session setup.");
+    }
 })();
